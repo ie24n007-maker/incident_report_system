@@ -1,0 +1,29 @@
+body {
+
+font-family: sans-serif;
+
+margin: 40px;
+
+}
+
+table {
+
+width: 100%;
+
+border-collapse: collapse;
+
+}
+
+th, td {
+
+border: 1px solid black;
+
+padding: 10px;
+
+}
+
+th {
+
+background: #dddddd;
+
+}

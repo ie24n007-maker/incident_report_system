@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<title>編集</title>
+
+</head>
+
+<body>
+
+<h1>編集</h1>
+
+<form method="POST">
+
+日付
+
+<input
+type="date"
+name="date"
+value="{{ incident[1] }}">
+
+<br><br>
+
+タイトル
+
+<input
+type="text"
+name="title"
+value="{{ incident[2] }}">
+
+<br><br>
+
+重要度
+
+<input
+type="text"
+name="level"
+value="{{ incident[3] }}">
+
+<br><br>
+
+詳細
+
+<textarea name="detail">{{ incident[4] }}</textarea>
+
+<br><br>
+
+<button>更新</button>
+
+</form>
+
+</body>
+
+</html>

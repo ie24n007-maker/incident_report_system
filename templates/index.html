@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<title>インシデント一覧</title>
+
+<link rel="stylesheet"
+href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+
+<body>
+
+<h1>インシデント一覧</h1>
+
+<a href="/add">新規登録</a>
+
+<table>
+
+<tr>
+
+<th>日付</th>
+
+<th>タイトル</th>
+
+<th>重要度</th>
+
+<th>詳細</th>
+
+<th>操作</th>
+
+</tr>
+
+{% for i in incidents %}
+
+<tr>
+
+<td>{{ i[1] }}</td>
+
+<td>{{ i[2] }}</td>
+
+<td>{{ i[3] }}</td>
+
+<td>{{ i[4] }}</td>
+
+<td>
+
+<a href="/edit/{{ i[0] }}">編集</a>
+
+<a href="/delete/{{ i[0] }}">削除</a>
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</body>
+
+</html>
