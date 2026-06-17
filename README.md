@@ -10,6 +10,8 @@
 
 ### 依頼
 「インシデントをデジタルで報告して、同じ問題が繰り返されていたら教えてくれるシステムがほしい。」
+
+
 git add .
 git commit -m "flask app"
 git push origin main
