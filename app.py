@@ -1,8 +1,30 @@
+def send_mail(date, title, detail):
+
+    print("===== 重大事故通知 =====")
+
+    print(f"発生日: {date}")
+
+    print(f"件名: {title}")
+
+    print(f"詳細: {detail}")
+
+    print("======================")
+
 from flask import Flask, render_template, request, redirect
 import sqlite3
 
 app = Flask(__name__)
+def send_mail(date, title, detail):
 
+    print("===== 重大事故通知 =====")
+
+    print(f"発生日: {date}")
+
+    print(f"件名: {title}")
+
+    print(f"詳細: {detail}")
+
+    print("======================")
 
 # データベース作成
 def init_db():
@@ -74,6 +96,10 @@ def add():
         conn.commit()
 
         conn.close()
+
+        if level == "重大":
+
+            send_mail(date, title, detail)
 
         return redirect("/")
 
