@@ -50,6 +50,9 @@ source venv/bin/activate
 pip install flask
 
 
-④アプリを起動する
-python3 app.py
+④PostgreSQLに接続するためのライブラリをインストール
+pip install psycopg2-binary
 
+
+⑤アプリを起動する
+python3 app.py
