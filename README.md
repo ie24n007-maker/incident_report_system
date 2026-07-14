@@ -52,7 +52,6 @@ source venv/Scripts/activate
 pip install -r requirements.txt
 (個別にインストールする場合は pip install flask を実行)
 
-
 ## 3.アプリの起動
 python3 app.py
 (環境によっては python app.pyで起動)

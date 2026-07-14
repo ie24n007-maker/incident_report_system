@@ -1,8 +1,20 @@
 from flask import Flask, render_template, request, redirect
-import sqlite3
+import psycopg2
+from psycopg2.extras import DictCursor
 import webbrowser
 
 app = Flask(__name__)
+
+# 🔑 【重要】ここにSupabaseの接続URL（接続文字列）を貼り付けます！
+# 例: "postgresql://postgres.xxxx:password@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres"
+SUPABASE_DATABASE_URL = "postgresql://postgres.kcfrxsdveasqeefegvga:grueaogkobvjnfdsbrd@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres"
+
+# クラウドDBに接続するための共通関数
+def get_db_connection():
+    # sqlite3.connect の代わりにクラウドのURLで接続
+    # DictCursorを使うことで、sqliteのようにカラム名でデータを扱いやすくします
+    conn = psycopg2.connect(SUPABASE_DATABASE_URL, cursor_factory=DictCursor)
+    return conn
 
 # 重大事故時の通知ロジック
 def send_mail(date, location, title, detail):
@@ -13,13 +25,14 @@ def send_mail(date, location, title, detail):
     print(f"詳細 : {detail}")
     print("==========================\n")
 
-# データベース初期化（『場所』カラムをしっかり追加）
+# データベース初期化（クラウド上にテーブルがなければ作成）
 def init_db():
-    conn = sqlite3.connect("incidents.db")
+    conn = get_db_connection()
     cur = conn.cursor()
+    # PostgreSQLの文法に合わせて、AUTOINCREMENT を SERIAL に変更しています
     cur.execute("""
     CREATE TABLE IF NOT EXISTS incidents(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         date TEXT,
         location TEXT,
         title TEXT,
@@ -28,41 +41,39 @@ def init_db():
     )
     """)
     conn.commit()
+    cur.close()
     conn.close()
 
 # 一覧表示（ソート機能 ＆ 繰り返し検出付き）
 @app.route("/")
 def index():
-    # 画面からどの順で並び替えるか（ソート条件）を受け取る
     sort_by = request.args.get("sort", "date_desc")
     
-    conn = sqlite3.connect("incidents.db")
+    conn = get_db_connection()
     cur = conn.cursor()
 
-    # ソート条件によってSQLを切り替える
     if sort_by == "date_asc":
         cur.execute("SELECT * FROM incidents ORDER BY date ASC")
     elif sort_by == "level_desc":
-        # 重大 ➔ 中 ➔ 軽微 の順に並ぶように調整
         cur.execute("""
             SELECT * FROM incidents 
             ORDER BY CASE level WHEN '重大' THEN 1 WHEN '中' THEN 2 ELSE 3 END ASC
         """)
     else:
-        # デフォルトは日付の新しい順
         cur.execute("SELECT * FROM incidents ORDER BY date DESC")
         
     incidents = cur.fetchall()
 
-    # 繰り返し発生しているインシデント（同じ件名が2回以上）を検出
+    # 繰り返し発生しているインシデント（PostgreSQLではCOUNT(*)に別名をつけた場合、HAVINGでもそれを使います）
     cur.execute("""
         SELECT title, COUNT(*) as occurrence_count 
         FROM incidents 
         GROUP BY title 
-        HAVING occurrence_count >= 2
+        HAVING COUNT(*) >= 2
     """)
     repeated_incidents = cur.fetchall()
 
+    cur.close()
     conn.close()
 
     return render_template(
@@ -77,24 +88,25 @@ def index():
 def add():
     if request.method == "POST":
         date = request.form["date"]
-        location = request.form["location"]  # 場所を取得
+        location = request.form["location"]
         title = request.form["title"]
         level = request.form["level"]
         detail = request.form["detail"]
 
-        conn = sqlite3.connect("incidents.db")
+        conn = get_db_connection()
         cur = conn.cursor()
+        # SQL文の中の「?」は、PostgreSQLでは「%s」に変わります
         cur.execute(
             """
             INSERT INTO incidents (date, location, title, level, detail)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
             """,
             (date, location, title, level, detail)
         )
         conn.commit()
+        cur.close()
         conn.close()
 
-        # 重大事故の場合は通知を実行
         if level == "重大":
             send_mail(date, location, title, detail)
 
@@ -105,12 +117,12 @@ def add():
 # 編集
 @app.route("/edit/<int:id>", methods=["GET", "POST"])
 def edit(id):
-    conn = sqlite3.connect("incidents.db")
+    conn = get_db_connection()
     cur = conn.cursor()
 
     if request.method == "POST":
         date = request.form["date"]
-        location = request.form["location"]  # 場所を取得
+        location = request.form["location"]
         title = request.form["title"]
         level = request.form["level"]
         detail = request.form["detail"]
@@ -118,17 +130,19 @@ def edit(id):
         cur.execute(
             """
             UPDATE incidents
-            SET date=?, location=?, title=?, level=?, detail=?
-            WHERE id=?
+            SET date=%s, location=%s, title=%s, level=%s, detail=%s
+            WHERE id=%s
             """,
             (date, location, title, level, detail, id)
         )
         conn.commit()
+        cur.close()
         conn.close()
         return redirect("/")
 
-    cur.execute("SELECT * FROM incidents WHERE id=?", (id,))
+    cur.execute("SELECT * FROM incidents WHERE id=%s", (id,))
     incident = cur.fetchone()
+    cur.close()
     conn.close()
 
     return render_template("edit.html", incident=incident)
@@ -136,18 +150,18 @@ def edit(id):
 # 削除
 @app.route("/delete/<int:id>")
 def delete(id):
-    conn = sqlite3.connect("incidents.db")
+    conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("DELETE FROM incidents WHERE id=?", (id,))
+    cur.execute("DELETE FROM incidents WHERE id=%s", (id,))
     conn.commit()
+    cur.close()
     conn.close()
     return redirect("/")
 
-# アプリ起動のメイン処理
 if __name__ == "__main__":
+    # アプリ起動時にSupabase側をチェック・初期化
+    # 💡 最初に誰か1人が起動した時点でクラウド側にテーブルが自動作成されます！
     init_db()
     
-    # アプリ起動時にブラウザを自動でポップアップさせる
     webbrowser.open("http://127.0.0.1:5000")
-    
     app.run(debug=True, use_reloader=False)
